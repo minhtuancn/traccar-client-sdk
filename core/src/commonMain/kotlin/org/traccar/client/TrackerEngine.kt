@@ -14,6 +14,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withTimeoutOrNull
 
 internal fun heartbeatPosition(
     position: Position?,
@@ -49,12 +50,18 @@ class TrackerEngine internal constructor(
 ) {
     private val mutex = Mutex()
     private val pipelineWakeUp = Channel<Unit>(Channel.CONFLATED)
+    private val manualSyncWakeUp = Channel<Unit>(Channel.CONFLATED)
     private val heartbeatPositions = MutableSharedFlow<Position>(extraBufferCapacity = 4)
 
     init {
         scope.launch { signalSources.map { it.signals }.merge().collect { handle(it) } }
         scope.launch { pipelineLoop() }
         scope.launch { syncLoop() }
+    }
+
+    fun syncNow() {
+        manualSyncWakeUp.trySend(Unit)
+        pipelineWakeUp.trySend(Unit)
     }
 
     suspend fun handle(signal: Signal) {
@@ -120,25 +127,63 @@ class TrackerEngine internal constructor(
 
     private suspend fun syncLoop() {
         var backoff = initialBackoff
+        val smartSync = config.smartSync
+
         while (currentCoroutineContext().isActive) {
-            val pending = queue.peek()
+            if (queue.peek() == null) {
+                pipelineWakeUp.receive()
+                backoff = initialBackoff
+                continue
+            }
+
+            val manualRequested = manualSyncWakeUp.tryReceive().isSuccess
             when {
-                pending == null -> pipelineWakeUp.receive()
-                !network.isOnline.value -> {
-                    Log.log("Offline, waiting for network")
-                    network.isOnline.first { it }
-                    Log.log("Network restored")
+                manualRequested -> {
+                    backoff = drainQueue(manualDrainLimit(), backoff)
                 }
-                uploader.upload(pending) -> {
-                    queue.removeFirst()
-                    backoff = initialBackoff
+                !shouldAutoSync(smartSync) -> {
+                    Log.log("Smart sync offline mode; waiting for manual sync")
+                    manualSyncWakeUp.receive()
+                    backoff = drainQueue(manualDrainLimit(), backoff)
+                }
+                smartSync.enabled && smartSync.mode == SyncMode.BATCH -> {
+                    val forced = withTimeoutOrNull(
+                        smartSync.batchIntervalSeconds.coerceAtLeast(1).seconds,
+                    ) {
+                        manualSyncWakeUp.receive()
+                        true
+                    } ?: false
+                    val limit = if (forced) manualDrainLimit() else automaticDrainLimit(smartSync)
+                    Log.log("Smart sync batch drain limit=$limit forced=$forced")
+                    backoff = drainQueue(limit, backoff)
                 }
                 else -> {
-                    Log.log("Upload failed, retrying in $backoff")
-                    delay(backoff)
-                    backoff = (backoff * 2).coerceAtMost(maxBackoff)
+                    backoff = drainQueue(automaticDrainLimit(smartSync), backoff)
                 }
             }
         }
+    }
+
+    private suspend fun drainQueue(limit: Int, initial: Duration): Duration {
+        var remaining = limit
+        var backoff = initial
+        while (remaining > 0 && currentCoroutineContext().isActive) {
+            val pending = queue.peek() ?: break
+            if (!network.isOnline.value) {
+                Log.log("Offline, waiting for network")
+                network.isOnline.first { it }
+                Log.log("Network restored")
+            }
+            if (uploader.upload(pending)) {
+                queue.removeFirst()
+                remaining -= 1
+                backoff = initialBackoff
+            } else {
+                Log.log("Upload failed, retrying in $backoff")
+                delay(backoff)
+                backoff = (backoff * 2).coerceAtMost(maxBackoff)
+            }
+        }
+        return backoff
     }
 }
