@@ -36,6 +36,7 @@ class TrackerEngine internal constructor(
     private val queue: PositionQueue,
     private val network: NetworkMonitor,
     private val locationSource: LocationSource,
+    private val config: Config,
     signalSources: List<SignalSource>,
     private val processors: List<PositionProcessor>,
     private val uploader: Uploader,
@@ -85,7 +86,7 @@ class TrackerEngine internal constructor(
         val position = heartbeatPosition(
             position = fetched,
             now = now,
-            maxAgeSeconds = stateStore.config.location.heartbeatMaxAgeSeconds,
+            maxAgeSeconds = config.location.heartbeatMaxAgeSeconds,
         )
         if (fetched != null && position.latitude == null && fetched.latitude != null) {
             Log.log("Heartbeat position stale; sending liveness-only heartbeat")
