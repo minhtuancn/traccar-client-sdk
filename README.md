@@ -6,9 +6,20 @@ A Kotlin Multiplatform background location tracking SDK for [Traccar](https://ww
 - **Flutter** - pub.dev (`traccar_client_sdk`)
 - **React Native** - npm (`react-native-traccar-client-sdk`)
 
+## Fork enhancements
+
+This fork adds reliability features intended for long-running managed-device tracking while retaining the original Traccar pipeline and protocol compatibility:
+
+- fresh-position heartbeat age filtering
+- adaptive Driving / Walking / Stationary / Charging / Battery Saver profiles
+- runtime location subscription changes without adding a second GPS service
+- PR verification via GitHub CI and Woodpecker CI
+
+See [Adaptive Tracking Profiles](docs/ADAPTIVE_TRACKING.md) for profile behavior and configuration.
+
 ## Documentation
 
-Full documentation - installation, configuration, API, and architecture - is on the Traccar website:
+Upstream documentation - installation, configuration, API, and architecture - is on the Traccar website:
 
 - **Overview:** https://www.traccar.org/traccar-client-sdk/
 - **Flutter:** https://www.traccar.org/traccar-client-sdk-flutter/
@@ -16,4 +27,4 @@ Full documentation - installation, configuration, API, and architecture - is on 
 
 ## License
 
-Apache License 2.0. See [LICENSE](LICENSE).
+Apache License 2.0. See [LICENSE](LICENSE). Third-party projects such as Colota are used only as architecture/behavior references; their source is not copied into this fork.
