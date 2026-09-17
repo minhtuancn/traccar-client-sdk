@@ -6,6 +6,10 @@ A Kotlin Multiplatform background location tracking SDK for [Traccar](https://ww
 - **Flutter** - pub.dev (`traccar_client_sdk`)
 - **React Native** - npm (`react-native-traccar-client-sdk`)
 
+## Fork status
+
+The resilient-tracking enhancement stack is merged to this fork's `main` branch. It is consumed by the Android beta `minhtuancn/traccar-client` `10.2.0-beta.1+159` through an immutable git submodule pin and Gradle composite-build dependency substitution.
+
 ## Fork enhancements
 
 This fork adds reliability features intended for long-running managed-device tracking while retaining the original Traccar pipeline and protocol compatibility:
@@ -27,6 +31,14 @@ See:
 ## Fork maintenance
 
 The fork is consumed by `minhtuancn/traccar-client` through an immutable git submodule pin and Android Gradle composite-build substitution. Do not publish fork builds over Traccar's official Maven coordinates. Use the upstream sync procedure to reconcile official changes in a temporary integration branch, run the full SDK verification, then update the client to an exact reviewed SDK commit.
+
+The SDK keeps the original SQLDelight durable queue and Traccar/OsmAnd-compatible per-position protocol. Smart Sync controls queue draining policy; it does not add a second queue or a proprietary batch wire format.
+
+## Verification
+
+The merged enhancement stack has passed Kotlin Multiplatform core verification and Flutter wrapper analysis. The integrated Android client stack has also passed Flutter analysis/tests and a full debug APK build using the pinned SDK source.
+
+Physical Android validation remains important for Doze/OEM background behavior, reboot recovery, motion profile transitions, and prolonged offline/reconnect scenarios.
 
 ## Documentation
 
