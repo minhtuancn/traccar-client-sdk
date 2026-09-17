@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 /// Location-accuracy preset. Maps to the SDK's `Accuracy` enum.
 enum Accuracy { highest, high, medium, low }
 
+enum SyncMode { instant, batch, offline }
+
 /// Tuning parameters for the location pipeline.
 class LocationConfig {
   const LocationConfig({
@@ -25,9 +27,6 @@ class LocationConfig {
   final int stopTimeoutSeconds;
   final int stationaryRadiusMeters;
   final int heartbeatIntervalSeconds;
-
-  /// Maximum age of a cached heartbeat position. A stale cached coordinate is
-  /// replaced by a liveness-only heartbeat. Set to 0 to disable age filtering.
   final int heartbeatMaxAgeSeconds;
 
   Map<String, Object?> _toMap() => {
@@ -80,6 +79,29 @@ class AdaptiveTrackingConfig {
       };
 }
 
+/// Durable queue draining policy. Batch mode still sends normal Traccar
+/// requests one by one; it only controls when and how many queued points drain.
+class SmartSyncConfig {
+  const SmartSyncConfig({
+    this.enabled = false,
+    this.mode = SyncMode.instant,
+    this.batchSize = 25,
+    this.batchIntervalSeconds = 60,
+  });
+
+  final bool enabled;
+  final SyncMode mode;
+  final int batchSize;
+  final int batchIntervalSeconds;
+
+  Map<String, Object?> _toMap() => {
+        'enabled': enabled,
+        'mode': mode.name.toUpperCase(),
+        'batchSize': batchSize,
+        'batchIntervalSeconds': batchIntervalSeconds,
+      };
+}
+
 /// Foreground-service notification settings (Android only).
 class NotificationConfig {
   const NotificationConfig({this.text = 'Location tracking'});
@@ -97,6 +119,7 @@ class Config {
     required this.deviceId,
     this.location = const LocationConfig(),
     this.adaptiveTracking = const AdaptiveTrackingConfig(),
+    this.smartSync = const SmartSyncConfig(),
     this.wakeLock = false,
     this.buffer = true,
     this.preferPlatformProviders = false,
@@ -107,20 +130,10 @@ class Config {
   final String deviceId;
   final LocationConfig location;
   final AdaptiveTrackingConfig adaptiveTracking;
-
-  /// Hold a wakelock while tracking (Android only).
+  final SmartSyncConfig smartSync;
   final bool wakeLock;
-
-  /// When true, persist positions to a local queue and retry on network
-  /// failure. When false, attempt a direct upload for each position and
-  /// drop it on failure (real-time only).
   final bool buffer;
-
-  /// When true, the Android SDK uses the platform `LocationManager` directly
-  /// even when Google Play Services is available. Default `false` picks the
-  /// Fused Location Provider when Play Services is present. Ignored on iOS.
   final bool preferPlatformProviders;
-
   final NotificationConfig notification;
 
   Map<String, Object?> _toMap() => {
@@ -128,6 +141,7 @@ class Config {
         'deviceId': deviceId,
         'location': location._toMap(),
         'adaptiveTracking': adaptiveTracking._toMap(),
+        'smartSync': smartSync._toMap(),
         'wakeLock': wakeLock,
         'buffer': buffer,
         'preferPlatformProviders': preferPlatformProviders,
@@ -139,7 +153,6 @@ class Config {
 class LogEntry {
   const LogEntry({required this.time, required this.message});
 
-  /// Epoch milliseconds at which the entry was recorded.
   final int time;
   final String message;
 }
@@ -148,30 +161,20 @@ class LogEntry {
 class TraccarClientSdk {
   static const MethodChannel _channel = MethodChannel('traccar_client_sdk');
 
-  /// Initializes the SDK with [config] if it isn't already initialized.
-  /// Idempotent — subsequent calls return the existing tracker without
-  /// touching its config. Call once at app startup to seed defaults; use
-  /// [setConfig] to change settings on a running tracker.
   Future<void> init(Config config) =>
       _channel.invokeMethod<void>('init', config._toMap());
 
-  /// Replaces the running tracker's configuration with [config]. Requires
-  /// that [init] (or a prior session) has installed a tracker. Throws a
-  /// [PlatformException] otherwise.
   Future<void> setConfig(Config config) =>
       _channel.invokeMethod<void>('setConfig', config._toMap());
 
-  /// Starts background location tracking. Requires that the SDK has been
-  /// initialized (via [init] in this session, or via persisted config from
-  /// a previous one). Throws a [PlatformException] if required permissions
-  /// were denied or no config has ever been provided.
   Future<void> start() => _channel.invokeMethod<void>('start');
 
-  /// Stops tracking.
   Future<void> stop() => _channel.invokeMethod<void>('stop');
 
-  /// Requests a single position fix and uploads it to the server. Returns
-  /// whether the upload succeeded. Works independently of [start] / [stop].
+  /// Force-drains the durable queue. In offline sync mode this is the only
+  /// operation that uploads buffered points.
+  Future<void> syncNow() => _channel.invokeMethod<void>('syncNow');
+
   Future<bool> requestPosition({String? alarm}) async {
     final result = await _channel.invokeMethod<bool>(
       'requestPosition',
@@ -180,13 +183,11 @@ class TraccarClientSdk {
     return result ?? false;
   }
 
-  /// Returns whether tracking is currently active.
   Future<bool> isTracking() async {
     final result = await _channel.invokeMethod<bool>('isTracking');
     return result ?? false;
   }
 
-  /// Returns recent diagnostic entries, oldest first.
   Future<List<LogEntry>> getLogs() async {
     final raw =
         await _channel.invokeListMethod<Map<dynamic, dynamic>>('getLogs');
@@ -199,6 +200,5 @@ class TraccarClientSdk {
         .toList(growable: false);
   }
 
-  /// Clears all stored diagnostic entries.
   Future<void> clearLogs() => _channel.invokeMethod<void>('clearLogs');
 }
