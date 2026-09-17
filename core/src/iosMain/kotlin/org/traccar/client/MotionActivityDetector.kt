@@ -40,6 +40,7 @@ class MotionActivityDetector(
         manager.startActivityUpdatesToQueue(NSOperationQueue.mainQueue) { motion ->
             if (motion == null) return@startActivityUpdatesToQueue
             Log.log("Motion update: ${motion.describe()}")
+            signals.tryEmit(Signal.MotionChanged(motion.toMotionActivity()))
             when {
                 motion.stationary -> onStillEnter()
                 motion.walking || motion.running || motion.automotive || motion.cycling ->
@@ -71,6 +72,15 @@ class MotionActivityDetector(
         scope.launch { signals.emit(Signal.StationaryExit) }
     }
 
+    private fun CMMotionActivity.toMotionActivity(): MotionActivity = when {
+        automotive -> MotionActivity.VEHICLE
+        cycling -> MotionActivity.CYCLING
+        running -> MotionActivity.RUNNING
+        walking -> MotionActivity.WALKING
+        stationary -> MotionActivity.STILL
+        else -> MotionActivity.UNKNOWN
+    }
+
     private fun CMMotionActivity.describe(): String {
         val types = buildList {
             if (stationary) add("stationary")
@@ -83,5 +93,4 @@ class MotionActivityDetector(
         val label = if (types.isEmpty()) "none" else types.joinToString("/")
         return "$label/confidence=$confidence"
     }
-
 }
