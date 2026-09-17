@@ -1,0 +1,65 @@
+name: Client Android Beta Build
+
+on:
+  push:
+    branches:
+      - ci/client-beta-build
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-client-beta:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout client main
+        uses: actions/checkout@v5
+        with:
+          repository: minhtuancn/traccar-client
+          ref: main
+          submodules: recursive
+          path: client
+
+      - name: Set up JDK
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Verify pinned SDK core
+        working-directory: client/vendor/traccar-client-sdk
+        run: ./gradlew :core:allTests --no-configuration-cache
+
+      - name: Verify Flutter client
+        working-directory: client
+        run: |
+          flutter pub get
+          flutter analyze
+          flutter test
+
+      - name: Build beta APK
+        working-directory: client
+        run: flutter build apk --debug
+
+      - name: Rename beta APK
+        run: cp client/build/app/outputs/flutter-apk/app-debug.apk traccar-client-10.2.0-beta.1.apk
+
+      - name: SHA-256
+        run: sha256sum traccar-client-10.2.0-beta.1.apk | tee traccar-client-10.2.0-beta.1.sha256
+
+      - name: Upload beta APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: traccar-client-10.2.0-beta.1
+          path: |
+            traccar-client-10.2.0-beta.1.apk
+            traccar-client-10.2.0-beta.1.sha256
+          if-no-files-found: error
+          retention-days: 90
