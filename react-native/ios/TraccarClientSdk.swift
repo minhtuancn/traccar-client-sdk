@@ -132,6 +132,7 @@ class TraccarClientSdk: NSObject {
 
   private func parseConfig(_ args: NSDictionary) -> Config {
     let location = args["location"] as! [String: Any]
+    let adaptive = args["adaptiveTracking"] as? [String: Any] ?? [:]
     let notification = args["notification"] as! [String: Any]
     return Config(
       serverUrl: args["serverUrl"] as! String,
@@ -147,25 +148,21 @@ class TraccarClientSdk: NSObject {
         heartbeatIntervalSeconds: Int32(location["heartbeatIntervalSeconds"] as! Int),
         heartbeatMaxAgeSeconds: Int32(location["heartbeatMaxAgeSeconds"] as? Int ?? 300)
       ),
-      adaptiveTracking: defaultAdaptiveTrackingConfig(),
+      adaptiveTracking: AdaptiveTrackingConfig(
+        enabled: adaptive["enabled"] as? Bool ?? false,
+        transitionDelaySeconds: Int32(adaptive["transitionDelaySeconds"] as? Int ?? 10),
+        lowBatteryThresholdPercent: Int32(adaptive["lowBatteryThresholdPercent"] as? Int ?? 20),
+        drivingEnterSpeedMps: adaptive["drivingEnterSpeedMps"] as? Double ?? 4.2,
+        drivingExitSpeedMps: adaptive["drivingExitSpeedMps"] as? Double ?? 2.0,
+        drivingDistanceMeters: Int32(adaptive["drivingDistanceMeters"] as? Int ?? 10),
+        walkingDistanceMeters: Int32(adaptive["walkingDistanceMeters"] as? Int ?? 20),
+        chargingIntervalSeconds: Int32(adaptive["chargingIntervalSeconds"] as? Int ?? 10),
+        batterySaverDistanceMeters: Int32(adaptive["batterySaverDistanceMeters"] as? Int ?? 100)
+      ),
       wakeLock: args["wakeLock"] as! Bool,
       buffer: args["buffer"] as! Bool,
       preferPlatformProviders: args["preferPlatformProviders"] as! Bool,
       notification: NotificationConfig(text: notification["text"] as! String)
-    )
-  }
-
-  private func defaultAdaptiveTrackingConfig() -> AdaptiveTrackingConfig {
-    AdaptiveTrackingConfig(
-      enabled: false,
-      transitionDelaySeconds: 10,
-      lowBatteryThresholdPercent: 20,
-      drivingEnterSpeedMps: 4.2,
-      drivingExitSpeedMps: 2.0,
-      drivingDistanceMeters: 10,
-      walkingDistanceMeters: 20,
-      chargingIntervalSeconds: 10,
-      batterySaverDistanceMeters: 100
     )
   }
 
