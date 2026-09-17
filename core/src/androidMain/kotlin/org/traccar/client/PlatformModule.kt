@@ -41,8 +41,10 @@ internal actual fun platformModule(): Module = module {
     single<List<SignalSource>> {
         val config = get<Config>()
         buildList {
-            if (config.location.stopDetection) {
+            if (config.location.stopDetection || config.adaptiveTracking.enabled) {
                 add(get<ActivityRecognitionDetector>())
+            }
+            if (config.location.stopDetection) {
                 add(get<GeofenceDetector>())
                 if (config.location.heartbeatIntervalSeconds > 0) {
                     add(get<AlarmHeartbeatTrigger>())
