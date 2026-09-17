@@ -15,18 +15,20 @@ import com.google.android.gms.tasks.CancellationTokenSource
 import kotlin.coroutines.resume
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 
 @SuppressLint("MissingPermission")
 class FusedLocationSource(
     scope: ComponentCoroutineScope,
     context: Context,
-    config: Config,
+    profileController: TrackingProfileController,
     state: StateFlow<State>,
 ) : LocationSource {
 
-    private val locationConfig = config.location.effective
-
+    private val locationConfig = profileController.locationConfig
     private val appContext = context.applicationContext
     private val client: FusedLocationProviderClient =
         LocationServices.getFusedLocationProviderClient(appContext)
@@ -34,44 +36,53 @@ class FusedLocationSource(
     override val positions = MutableSharedFlow<Position>(extraBufferCapacity = 8)
 
     private var callback: LocationCallback? = null
+    private var activeConfig: LocationConfig? = null
     private var currentLocationToken: CancellationTokenSource? = null
 
     init {
-        scope.observeState(state, State::locationMode, inactive = LocationMode.Off) { mode ->
-            try {
-                when (mode) {
-                    LocationMode.Active -> ensureStarted()
-                    LocationMode.Stationary -> ensureStopped(awaitFinalFix = true)
-                    LocationMode.Off -> ensureStopped(awaitFinalFix = false)
-                }
-            } catch (e: SecurityException) {
-                Log.log("Location permission missing: $e")
+        scope.launch {
+            combine(state, locationConfig) { trackerState, config ->
+                trackerState.locationMode() to config.effective
             }
+                .distinctUntilChanged()
+                .collect { (mode, config) ->
+                    try {
+                        when (mode) {
+                            LocationMode.Active -> ensureStarted(config)
+                            LocationMode.Stationary -> ensureStopped(awaitFinalFix = true)
+                            LocationMode.Off -> ensureStopped(awaitFinalFix = false)
+                        }
+                    } catch (e: SecurityException) {
+                        Log.log("Location permission missing: $e")
+                    }
+                }
         }
     }
 
-    private fun ensureStarted() {
-        if (callback != null) return
-        startUpdates(locationConfig)
+    private fun ensureStarted(config: LocationConfig) {
+        if (callback != null && activeConfig == config) return
+        if (callback != null) stopUpdates()
+        startUpdates(config)
     }
 
     private suspend fun ensureStopped(awaitFinalFix: Boolean) {
         if (callback == null) return
         if (awaitFinalFix) {
-            val finalFix = awaitCurrentLocation()
+            val finalFix = awaitCurrentLocation(locationConfig.value.effective)
             finalFix?.let { positions.emit(it.toPosition()) }
         }
         stopUpdates()
     }
 
     override suspend fun fetchOnce(): Position? = try {
-        (awaitCurrentLocation() ?: awaitLastLocation())?.toPosition()
+        val config = locationConfig.value.effective
+        (awaitCurrentLocation(config) ?: awaitLastLocation())?.toPosition()
     } catch (e: SecurityException) {
         Log.log("Location permission missing: $e")
         null
     }
 
-    private fun startUpdates(locationConfig: LocationConfig) {
+    private fun startUpdates(config: LocationConfig) {
         val newCallback = object : LocationCallback() {
             override fun onLocationResult(result: LocationResult) {
                 val location = result.lastLocation ?: return
@@ -79,14 +90,15 @@ class FusedLocationSource(
             }
         }
         val request = LocationRequest.Builder(
-            locationConfig.accuracy.toFusedPriority(),
-            locationConfig.intervalSeconds * 1000L,
+            config.accuracy.toFusedPriority(),
+            config.intervalSeconds * 1000L,
         )
-            .setMinUpdateDistanceMeters(locationConfig.distanceMeters.toFloat())
+            .setMinUpdateDistanceMeters(config.distanceMeters.toFloat())
             .build()
         client.requestLocationUpdates(request, newCallback, Looper.getMainLooper())
         callback = newCallback
-        Log.log("Location updates started")
+        activeConfig = config
+        Log.log("Location updates started profile=${config.accuracy}/${config.distanceMeters}m/${config.intervalSeconds}s")
     }
 
     private fun stopUpdates() {
@@ -95,14 +107,15 @@ class FusedLocationSource(
             Log.log("Location updates stopped")
         }
         callback = null
+        activeConfig = null
     }
 
-    private suspend fun awaitCurrentLocation(): Location? {
+    private suspend fun awaitCurrentLocation(config: LocationConfig): Location? {
         currentLocationToken?.cancel()
         val token = CancellationTokenSource()
         currentLocationToken = token
         val request = CurrentLocationRequest.Builder()
-            .setPriority(Priority.PRIORITY_HIGH_ACCURACY)
+            .setPriority(config.accuracy.toFusedPriority())
             .setDurationMillis(LOCATION_FETCH_TIMEOUT.inWholeMilliseconds)
             .build()
         return try {
