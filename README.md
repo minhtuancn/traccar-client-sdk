@@ -15,12 +15,18 @@ This fork adds reliability features intended for long-running managed-device tra
 - runtime location subscription changes without adding a second GPS service
 - Smart Sync with Instant / Batch / Offline durable-queue delivery policies
 - manual `syncNow()` queue draining
+- durable queue telemetry: pending-position count and persisted last-successful-sync timestamp
 - PR verification via GitHub CI and Woodpecker CI
 
 See:
 
 - [Adaptive Tracking Profiles](docs/ADAPTIVE_TRACKING.md)
 - [Smart Offline and Batch Sync](docs/SMART_SYNC.md)
+- [Upstream Sync Procedure](docs/UPSTREAM_SYNC.md)
+
+## Fork maintenance
+
+The fork is consumed by `minhtuancn/traccar-client` through an immutable git submodule pin and Android Gradle composite-build substitution. Do not publish fork builds over Traccar's official Maven coordinates. Use the upstream sync procedure to reconcile official changes in a temporary integration branch, run the full SDK verification, then update the client to an exact reviewed SDK commit.
 
 ## Documentation
 

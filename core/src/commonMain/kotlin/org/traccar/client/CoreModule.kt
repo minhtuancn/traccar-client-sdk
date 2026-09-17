@@ -39,6 +39,7 @@ internal fun coreModule(): Module = module {
             locationSource = get(),
             batteryProcessor = get(),
             uploader = get(),
+            queue = get(),
             profileController = get(),
             trackerEngine = get(),
             componentScope = get(),
