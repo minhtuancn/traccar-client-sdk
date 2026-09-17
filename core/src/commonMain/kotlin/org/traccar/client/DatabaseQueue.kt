@@ -56,4 +56,10 @@ class DatabaseQueue(driver: SqlDriver) : PositionQueue {
             }
         }
     }
+
+    override suspend fun count(): Long = withContext(Dispatchers.IO) {
+        mutex.withLock {
+            queries.count().executeAsOne()
+        }
+    }
 }
