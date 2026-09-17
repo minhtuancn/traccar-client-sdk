@@ -15,6 +15,22 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
+internal fun heartbeatPosition(
+    position: Position?,
+    now: Long,
+    maxAgeSeconds: Int,
+): Position {
+    if (position == null) return Position(time = now)
+    if (maxAgeSeconds <= 0) return position
+
+    val ageMs = (now - position.time).coerceAtLeast(0L)
+    return if (ageMs <= maxAgeSeconds * 1000L) {
+        position
+    } else {
+        Position(time = now)
+    }
+}
+
 class TrackerEngine internal constructor(
     private val stateStore: StateStore,
     private val queue: PositionQueue,
@@ -64,8 +80,16 @@ class TrackerEngine internal constructor(
         val state = stateStore.state.value
         if (!state.enabled || !state.paused) return
         Log.log("HeartbeatTick")
-        val position = locationSource.fetchOnce()
-            ?: Position(time = Clock.System.now().toEpochMilliseconds())
+        val now = Clock.System.now().toEpochMilliseconds()
+        val fetched = locationSource.fetchOnce()
+        val position = heartbeatPosition(
+            position = fetched,
+            now = now,
+            maxAgeSeconds = stateStore.config.location.heartbeatMaxAgeSeconds,
+        )
+        if (fetched != null && position.latitude == null && fetched.latitude != null) {
+            Log.log("Heartbeat position stale; sending liveness-only heartbeat")
+        }
         heartbeatPositions.emit(position)
     }
 
