@@ -29,6 +29,8 @@ export interface LocationConfig {
   stopTimeoutSeconds?: number;
   stationaryRadiusMeters?: number;
   heartbeatIntervalSeconds?: number;
+  /** Maximum age of a cached position accepted for a stationary heartbeat. */
+  heartbeatMaxAgeSeconds?: number;
 }
 
 /** Foreground-service notification settings (Android only). */
@@ -79,6 +81,7 @@ function normalizeConfig(config: Config): Required<Config> {
       stopTimeoutSeconds: location.stopTimeoutSeconds ?? 60,
       stationaryRadiusMeters: location.stationaryRadiusMeters ?? 100,
       heartbeatIntervalSeconds: location.heartbeatIntervalSeconds ?? 0,
+      heartbeatMaxAgeSeconds: location.heartbeatMaxAgeSeconds ?? 120,
     },
     wakeLock: config.wakeLock ?? false,
     buffer: config.buffer ?? true,

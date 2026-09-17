@@ -92,7 +92,8 @@ public class TraccarClientSdkPlugin: NSObject, FlutterPlugin {
         stopDetection: location["stopDetection"] as! Bool,
         stopTimeoutSeconds: Int32(location["stopTimeoutSeconds"] as! Int),
         stationaryRadiusMeters: Int32(location["stationaryRadiusMeters"] as! Int),
-        heartbeatIntervalSeconds: Int32(location["heartbeatIntervalSeconds"] as! Int)
+        heartbeatIntervalSeconds: Int32(location["heartbeatIntervalSeconds"] as! Int),
+        heartbeatMaxAgeSeconds: Int32(location["heartbeatMaxAgeSeconds"] as? Int ?? 120)
       ),
       wakeLock: args["wakeLock"] as! Bool,
       buffer: args["buffer"] as! Bool,

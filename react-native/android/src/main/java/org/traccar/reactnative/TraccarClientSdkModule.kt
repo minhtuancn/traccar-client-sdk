@@ -112,6 +112,11 @@ class TraccarClientSdkModule(
                 stopTimeoutSeconds = location.getInt("stopTimeoutSeconds"),
                 stationaryRadiusMeters = location.getInt("stationaryRadiusMeters"),
                 heartbeatIntervalSeconds = location.getInt("heartbeatIntervalSeconds"),
+                heartbeatMaxAgeSeconds = if (location.hasKey("heartbeatMaxAgeSeconds")) {
+                    location.getInt("heartbeatMaxAgeSeconds")
+                } else {
+                    120
+                },
             ),
             wakeLock = config.getBoolean("wakeLock"),
             buffer = config.getBoolean("buffer"),

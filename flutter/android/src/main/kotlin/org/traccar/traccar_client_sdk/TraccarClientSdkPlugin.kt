@@ -101,6 +101,7 @@ class TraccarClientSdkPlugin :
                 stopTimeoutSeconds = (location["stopTimeoutSeconds"] as Number).toInt(),
                 stationaryRadiusMeters = (location["stationaryRadiusMeters"] as Number).toInt(),
                 heartbeatIntervalSeconds = (location["heartbeatIntervalSeconds"] as Number).toInt(),
+                heartbeatMaxAgeSeconds = (location["heartbeatMaxAgeSeconds"] as? Number)?.toInt() ?: 120,
             ),
             wakeLock = args["wakeLock"] as Boolean,
             buffer = args["buffer"] as Boolean,
