@@ -33,6 +33,19 @@ export interface LocationConfig {
   heartbeatMaxAgeSeconds?: number;
 }
 
+/** Runtime adaptive profile settings. */
+export interface AdaptiveTrackingConfig {
+  enabled?: boolean;
+  transitionDelaySeconds?: number;
+  lowBatteryThresholdPercent?: number;
+  drivingEnterSpeedMps?: number;
+  drivingExitSpeedMps?: number;
+  drivingDistanceMeters?: number;
+  walkingDistanceMeters?: number;
+  chargingIntervalSeconds?: number;
+  batterySaverDistanceMeters?: number;
+}
+
 /** Foreground-service notification settings (Android only). */
 export interface NotificationConfig {
   text?: string;
@@ -43,6 +56,7 @@ export interface Config {
   serverUrl: string;
   deviceId: string;
   location?: LocationConfig;
+  adaptiveTracking?: AdaptiveTrackingConfig;
   /** Hold a wakelock while tracking (Android only). */
   wakeLock?: boolean;
   /**
@@ -68,6 +82,7 @@ export interface LogEntry {
 
 function normalizeConfig(config: Config): Required<Config> {
   const location = config.location ?? {};
+  const adaptive = config.adaptiveTracking ?? {};
   const notification = config.notification ?? {};
   return {
     serverUrl: config.serverUrl,
@@ -83,6 +98,17 @@ function normalizeConfig(config: Config): Required<Config> {
       heartbeatIntervalSeconds: location.heartbeatIntervalSeconds ?? 0,
       heartbeatMaxAgeSeconds: location.heartbeatMaxAgeSeconds ?? 300,
     },
+    adaptiveTracking: {
+      enabled: adaptive.enabled ?? false,
+      transitionDelaySeconds: adaptive.transitionDelaySeconds ?? 10,
+      lowBatteryThresholdPercent: adaptive.lowBatteryThresholdPercent ?? 20,
+      drivingEnterSpeedMps: adaptive.drivingEnterSpeedMps ?? 4.2,
+      drivingExitSpeedMps: adaptive.drivingExitSpeedMps ?? 2.0,
+      drivingDistanceMeters: adaptive.drivingDistanceMeters ?? 10,
+      walkingDistanceMeters: adaptive.walkingDistanceMeters ?? 20,
+      chargingIntervalSeconds: adaptive.chargingIntervalSeconds ?? 10,
+      batterySaverDistanceMeters: adaptive.batterySaverDistanceMeters ?? 100,
+    },
     wakeLock: config.wakeLock ?? false,
     buffer: config.buffer ?? true,
     preferPlatformProviders: config.preferPlatformProviders ?? false,
@@ -92,60 +118,34 @@ function normalizeConfig(config: Config): Required<Config> {
   };
 }
 
-/**
- * Initializes the SDK with `config` if it isn't already initialized.
- * Idempotent — subsequent calls return the existing tracker without touching
- * its config. Call once at app startup to seed defaults; use `setConfig` to
- * change settings on a running tracker.
- */
 export function init(config: Config): Promise<void> {
   return TraccarClientSdk.initTracker(normalizeConfig(config));
 }
 
-/**
- * Replaces the running tracker's configuration with `config`. Requires that
- * `init` (or a prior session) has installed a tracker; rejects otherwise.
- */
 export function setConfig(config: Config): Promise<void> {
   return TraccarClientSdk.setConfig(normalizeConfig(config));
 }
 
-/**
- * Starts background location tracking. Requires that the SDK has been
- * initialized. Rejects if required permissions were denied or no config has
- * ever been provided.
- */
 export function start(): Promise<void> {
   return TraccarClientSdk.start();
 }
 
-/** Stops tracking. */
 export function stop(): Promise<void> {
   return TraccarClientSdk.stop();
 }
 
-/**
- * Requests a single position fix and uploads it to the server. Resolves with
- * whether the upload succeeded. Works independently of `start` / `stop`.
- * Prompts for permission if needed and rejects when it is denied; a `false`
- * result means a fix or upload failure, not a permission problem. Pass `alarm`
- * (e.g. `"sos"`) to tag the upload. The one-off path does not buffer.
- */
 export function requestPosition(alarm?: string): Promise<boolean> {
   return TraccarClientSdk.requestPosition(alarm ?? null);
 }
 
-/** Resolves with whether tracking is currently active. */
 export function isTracking(): Promise<boolean> {
   return TraccarClientSdk.isTracking();
 }
 
-/** Resolves with recent diagnostic entries, oldest first. */
 export function getLogs(): Promise<LogEntry[]> {
   return TraccarClientSdk.getLogs();
 }
 
-/** Clears all stored diagnostic entries. */
 export function clearLogs(): Promise<void> {
   return TraccarClientSdk.clearLogs();
 }
