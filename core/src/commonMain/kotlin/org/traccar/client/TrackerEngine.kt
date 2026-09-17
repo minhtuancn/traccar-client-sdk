@@ -170,6 +170,7 @@ class TrackerEngine internal constructor(
     private suspend fun drainQueue(limit: Int, initial: Duration): Duration {
         var remaining = limit
         var backoff = initial
+        var lastSuccessfulSyncMillis: Long? = null
         while (remaining > 0 && currentCoroutineContext().isActive) {
             val pending = queue.peek() ?: break
             if (!network.isOnline.value) {
@@ -181,11 +182,15 @@ class TrackerEngine internal constructor(
                 queue.removeFirst()
                 remaining -= 1
                 backoff = initialBackoff
+                lastSuccessfulSyncMillis = Clock.System.now().toEpochMilliseconds()
             } else {
                 Log.log("Upload failed, retrying in $backoff")
                 delay(backoff)
                 backoff = (backoff * 2).coerceAtMost(maxBackoff)
             }
+        }
+        lastSuccessfulSyncMillis?.let { timestamp ->
+            stateStore.update { it.copy(lastSuccessfulSyncMillis = timestamp) }
         }
         return backoff
     }
