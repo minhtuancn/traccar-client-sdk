@@ -24,7 +24,8 @@ internal fun heartbeatPosition(
     if (maxAgeSeconds <= 0) return position
 
     val ageMs = (now - position.time).coerceAtLeast(0L)
-    return if (ageMs <= maxAgeSeconds * 1000L) {
+    val maxAgeMs = maxAgeSeconds.toLong() * 1000L
+    return if (ageMs <= maxAgeMs) {
         position
     } else {
         Position(time = now)
