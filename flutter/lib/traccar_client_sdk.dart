@@ -14,6 +14,7 @@ class LocationConfig {
     this.stopTimeoutSeconds = 60,
     this.stationaryRadiusMeters = 100,
     this.heartbeatIntervalSeconds = 0,
+    this.heartbeatMaxAgeSeconds = 300,
   });
 
   final Accuracy accuracy;
@@ -25,6 +26,10 @@ class LocationConfig {
   final int stationaryRadiusMeters;
   final int heartbeatIntervalSeconds;
 
+  /// Maximum age of a cached heartbeat position. A stale cached coordinate is
+  /// replaced by a liveness-only heartbeat. Set to 0 to disable age filtering.
+  final int heartbeatMaxAgeSeconds;
+
   Map<String, Object?> _toMap() => {
         'accuracy': accuracy.name.toUpperCase(),
         'distanceMeters': distanceMeters,
@@ -34,6 +39,7 @@ class LocationConfig {
         'stopTimeoutSeconds': stopTimeoutSeconds,
         'stationaryRadiusMeters': stationaryRadiusMeters,
         'heartbeatIntervalSeconds': heartbeatIntervalSeconds,
+        'heartbeatMaxAgeSeconds': heartbeatMaxAgeSeconds,
       };
 }
 
