@@ -16,6 +16,8 @@ import org.traccar.client.AdaptiveTrackingConfig
 import org.traccar.client.Config
 import org.traccar.client.LocationConfig
 import org.traccar.client.NotificationConfig
+import org.traccar.client.SmartSyncConfig
+import org.traccar.client.SyncMode
 import org.traccar.client.requestPosition
 import org.traccar.client.sharedTracker
 import org.traccar.client.startTracking
@@ -35,26 +37,27 @@ class TraccarClientSdkModule(
 
     @ReactMethod
     fun initTracker(config: ReadableMap, promise: Promise) = scope.resolve(promise) {
-        sharedTracker(parseConfig(config))
-        null
+        sharedTracker(parseConfig(config)); null
     }
 
     @ReactMethod
     fun setConfig(config: ReadableMap, promise: Promise) = scope.resolve(promise) {
-        sharedTracker()!!.updateConfig(parseConfig(config))
-        null
+        sharedTracker()!!.updateConfig(parseConfig(config)); null
     }
 
     @ReactMethod
     fun start(promise: Promise) = scope.resolve(promise) {
-        sharedTracker()!!.startTracking(reactContext)
-        null
+        sharedTracker()!!.startTracking(reactContext); null
     }
 
     @ReactMethod
     fun stop(promise: Promise) = scope.resolve(promise) {
-        sharedTracker()?.stop()
-        null
+        sharedTracker()?.stop(); null
+    }
+
+    @ReactMethod
+    fun syncNow(promise: Promise) = scope.resolve(promise) {
+        sharedTracker()?.syncNow(); null
     }
 
     @ReactMethod
@@ -72,20 +75,17 @@ class TraccarClientSdkModule(
         val logs = sharedTracker()?.getLogs().orEmpty()
         Arguments.createArray().apply {
             logs.forEach { entry ->
-                pushMap(
-                    Arguments.createMap().apply {
-                        putDouble("time", entry.time.toDouble())
-                        putString("message", entry.message)
-                    },
-                )
+                pushMap(Arguments.createMap().apply {
+                    putDouble("time", entry.time.toDouble())
+                    putString("message", entry.message)
+                })
             }
         }
     }
 
     @ReactMethod
     fun clearLogs(promise: Promise) = scope.resolve(promise) {
-        sharedTracker()?.clearLogs()
-        null
+        sharedTracker()?.clearLogs(); null
     }
 
     private fun CoroutineScope.resolve(promise: Promise, block: suspend () -> Any?) {
@@ -101,6 +101,7 @@ class TraccarClientSdkModule(
     private fun parseConfig(config: ReadableMap): Config {
         val location = config.getMap("location")!!
         val adaptive = config.getMap("adaptiveTracking")
+        val smartSync = config.getMap("smartSync")
         val notification = config.getMap("notification")!!
         return Config(
             serverUrl = config.getString("serverUrl")!!,
@@ -114,11 +115,7 @@ class TraccarClientSdkModule(
                 stopTimeoutSeconds = location.getInt("stopTimeoutSeconds"),
                 stationaryRadiusMeters = location.getInt("stationaryRadiusMeters"),
                 heartbeatIntervalSeconds = location.getInt("heartbeatIntervalSeconds"),
-                heartbeatMaxAgeSeconds = if (location.hasKey("heartbeatMaxAgeSeconds")) {
-                    location.getInt("heartbeatMaxAgeSeconds")
-                } else {
-                    300
-                },
+                heartbeatMaxAgeSeconds = if (location.hasKey("heartbeatMaxAgeSeconds")) location.getInt("heartbeatMaxAgeSeconds") else 300,
             ),
             adaptiveTracking = AdaptiveTrackingConfig(
                 enabled = adaptive?.getBoolean("enabled") ?: false,
@@ -130,6 +127,12 @@ class TraccarClientSdkModule(
                 walkingDistanceMeters = adaptive?.getInt("walkingDistanceMeters") ?: 20,
                 chargingIntervalSeconds = adaptive?.getInt("chargingIntervalSeconds") ?: 10,
                 batterySaverDistanceMeters = adaptive?.getInt("batterySaverDistanceMeters") ?: 100,
+            ),
+            smartSync = SmartSyncConfig(
+                enabled = smartSync?.getBoolean("enabled") ?: false,
+                mode = smartSync?.getString("mode")?.let(SyncMode::valueOf) ?: SyncMode.INSTANT,
+                batchSize = smartSync?.getInt("batchSize") ?: 25,
+                batchIntervalSeconds = smartSync?.getInt("batchIntervalSeconds") ?: 60,
             ),
             wakeLock = config.getBoolean("wakeLock"),
             buffer = config.getBoolean("buffer"),
