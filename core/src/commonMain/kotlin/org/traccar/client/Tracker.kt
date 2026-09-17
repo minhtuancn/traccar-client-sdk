@@ -17,6 +17,7 @@ class Tracker internal constructor(
     private val locationSource: LocationSource,
     private val batteryProcessor: PositionProcessor,
     private val uploader: Uploader,
+    private val queue: PositionQueue,
     private val profileController: TrackingProfileController,
     private val trackerEngine: TrackerEngine,
     private val componentScope: ComponentCoroutineScope,
@@ -39,6 +40,8 @@ class Tracker internal constructor(
         Log.log("Manual sync requested")
         trackerEngine.syncNow()
     }
+
+    suspend fun pendingPositionCount(): Long = queue.count()
 
     suspend fun requestPosition(alarm: String? = null): Boolean {
         Log.log("Position requested${alarm?.let { " alarm=$it" } ?: ""}")
