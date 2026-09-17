@@ -17,9 +17,12 @@ class Tracker internal constructor(
     private val locationSource: LocationSource,
     private val batteryProcessor: PositionProcessor,
     private val uploader: Uploader,
+    private val profileController: TrackingProfileController,
     private val componentScope: ComponentCoroutineScope,
 ) {
     val state: StateFlow<State> = stateStore.state
+    val profile: StateFlow<TrackingProfile> = profileController.profile
+    val effectiveLocationConfig: StateFlow<LocationConfig> = profileController.locationConfig
 
     suspend fun start() = sharedMutex.withLock {
         Log.log("Tracker start ${config.serverUrl} ${config.deviceId}")
