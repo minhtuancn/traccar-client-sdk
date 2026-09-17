@@ -12,6 +12,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import org.traccar.client.Accuracy
+import org.traccar.client.AdaptiveTrackingConfig
 import org.traccar.client.Config
 import org.traccar.client.LocationConfig
 import org.traccar.client.NotificationConfig
@@ -88,6 +89,7 @@ class TraccarClientSdkPlugin :
 
     private fun parseConfig(args: Map<*, *>): Config {
         val location = args["location"] as Map<*, *>
+        val adaptive = args["adaptiveTracking"] as? Map<*, *>
         val notification = args["notification"] as Map<*, *>
         return Config(
             serverUrl = args["serverUrl"] as String,
@@ -102,6 +104,17 @@ class TraccarClientSdkPlugin :
                 stationaryRadiusMeters = (location["stationaryRadiusMeters"] as Number).toInt(),
                 heartbeatIntervalSeconds = (location["heartbeatIntervalSeconds"] as Number).toInt(),
                 heartbeatMaxAgeSeconds = (location["heartbeatMaxAgeSeconds"] as? Number)?.toInt() ?: 300,
+            ),
+            adaptiveTracking = AdaptiveTrackingConfig(
+                enabled = adaptive?.get("enabled") as? Boolean ?: false,
+                transitionDelaySeconds = (adaptive?.get("transitionDelaySeconds") as? Number)?.toInt() ?: 10,
+                lowBatteryThresholdPercent = (adaptive?.get("lowBatteryThresholdPercent") as? Number)?.toInt() ?: 20,
+                drivingEnterSpeedMps = (adaptive?.get("drivingEnterSpeedMps") as? Number)?.toDouble() ?: 4.2,
+                drivingExitSpeedMps = (adaptive?.get("drivingExitSpeedMps") as? Number)?.toDouble() ?: 2.0,
+                drivingDistanceMeters = (adaptive?.get("drivingDistanceMeters") as? Number)?.toInt() ?: 10,
+                walkingDistanceMeters = (adaptive?.get("walkingDistanceMeters") as? Number)?.toInt() ?: 20,
+                chargingIntervalSeconds = (adaptive?.get("chargingIntervalSeconds") as? Number)?.toInt() ?: 10,
+                batterySaverDistanceMeters = (adaptive?.get("batterySaverDistanceMeters") as? Number)?.toInt() ?: 100,
             ),
             wakeLock = args["wakeLock"] as Boolean,
             buffer = args["buffer"] as Boolean,
