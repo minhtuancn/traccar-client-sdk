@@ -43,6 +43,43 @@ class LocationConfig {
       };
 }
 
+/// Adaptive runtime profile configuration.
+class AdaptiveTrackingConfig {
+  const AdaptiveTrackingConfig({
+    this.enabled = false,
+    this.transitionDelaySeconds = 10,
+    this.lowBatteryThresholdPercent = 20,
+    this.drivingEnterSpeedMps = 4.2,
+    this.drivingExitSpeedMps = 2.0,
+    this.drivingDistanceMeters = 10,
+    this.walkingDistanceMeters = 20,
+    this.chargingIntervalSeconds = 10,
+    this.batterySaverDistanceMeters = 100,
+  });
+
+  final bool enabled;
+  final int transitionDelaySeconds;
+  final int lowBatteryThresholdPercent;
+  final double drivingEnterSpeedMps;
+  final double drivingExitSpeedMps;
+  final int drivingDistanceMeters;
+  final int walkingDistanceMeters;
+  final int chargingIntervalSeconds;
+  final int batterySaverDistanceMeters;
+
+  Map<String, Object?> _toMap() => {
+        'enabled': enabled,
+        'transitionDelaySeconds': transitionDelaySeconds,
+        'lowBatteryThresholdPercent': lowBatteryThresholdPercent,
+        'drivingEnterSpeedMps': drivingEnterSpeedMps,
+        'drivingExitSpeedMps': drivingExitSpeedMps,
+        'drivingDistanceMeters': drivingDistanceMeters,
+        'walkingDistanceMeters': walkingDistanceMeters,
+        'chargingIntervalSeconds': chargingIntervalSeconds,
+        'batterySaverDistanceMeters': batterySaverDistanceMeters,
+      };
+}
+
 /// Foreground-service notification settings (Android only).
 class NotificationConfig {
   const NotificationConfig({this.text = 'Location tracking'});
@@ -59,6 +96,7 @@ class Config {
     required this.serverUrl,
     required this.deviceId,
     this.location = const LocationConfig(),
+    this.adaptiveTracking = const AdaptiveTrackingConfig(),
     this.wakeLock = false,
     this.buffer = true,
     this.preferPlatformProviders = false,
@@ -68,6 +106,7 @@ class Config {
   final String serverUrl;
   final String deviceId;
   final LocationConfig location;
+  final AdaptiveTrackingConfig adaptiveTracking;
 
   /// Hold a wakelock while tracking (Android only).
   final bool wakeLock;
@@ -88,6 +127,7 @@ class Config {
         'serverUrl': serverUrl,
         'deviceId': deviceId,
         'location': location._toMap(),
+        'adaptiveTracking': adaptiveTracking._toMap(),
         'wakeLock': wakeLock,
         'buffer': buffer,
         'preferPlatformProviders': preferPlatformProviders,
@@ -132,15 +172,6 @@ class TraccarClientSdk {
 
   /// Requests a single position fix and uploads it to the server. Returns
   /// whether the upload succeeded. Works independently of [start] / [stop].
-  /// Requires that [setConfig] has been called.
-  ///
-  /// Prompts for location permission if not already granted and throws a
-  /// [PlatformException] when permission is denied (matching [start]). A
-  /// `false` return means a fix or upload failure, not a permission problem.
-  ///
-  /// Pass [alarm] (e.g. `"sos"`) to tag the upload with the Traccar `alarm`
-  /// protocol field. The one-off path does not buffer — a failed upload is
-  /// not retried and the alarm is lost.
   Future<bool> requestPosition({String? alarm}) async {
     final result = await _channel.invokeMethod<bool>(
       'requestPosition',
