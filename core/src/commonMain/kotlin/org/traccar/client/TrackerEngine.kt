@@ -38,6 +38,7 @@ class TrackerEngine internal constructor(
     private val network: NetworkMonitor,
     private val locationSource: LocationSource,
     private val config: Config,
+    private val profileController: TrackingProfileController,
     signalSources: List<SignalSource>,
     private val processors: List<PositionProcessor>,
     private val uploader: Uploader,
@@ -56,11 +57,15 @@ class TrackerEngine internal constructor(
         scope.launch { syncLoop() }
     }
 
-    suspend fun handle(signal: Signal) = mutex.withLock {
-        when (signal) {
-            Signal.StationaryEnter -> applyStationaryEnter()
-            Signal.StationaryExit -> applyStationaryExit()
-            Signal.HeartbeatTick -> applyHeartbeatTick()
+    suspend fun handle(signal: Signal) {
+        profileController.handle(signal)
+        mutex.withLock {
+            when (signal) {
+                is Signal.MotionChanged -> Unit
+                Signal.StationaryEnter -> applyStationaryEnter()
+                Signal.StationaryExit -> applyStationaryExit()
+                Signal.HeartbeatTick -> applyHeartbeatTick()
+            }
         }
     }
 
@@ -103,6 +108,7 @@ class TrackerEngine internal constructor(
                 current = processor.process(current ?: break)
             }
             val final = current ?: return@collect
+            profileController.observe(final)
             if (buffer) {
                 queue.enqueue(final)
                 pipelineWakeUp.trySend(Unit)

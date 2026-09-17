@@ -6,6 +6,9 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.plus
 import kotlinx.coroutines.withContext
 import kotlin.time.Duration.Companion.seconds
@@ -29,32 +32,40 @@ import platform.darwin.NSObject
 
 class IosLocationSource(
     scope: ComponentCoroutineScope,
-    config: Config,
+    profileController: TrackingProfileController,
     state: StateFlow<State>,
 ) : LocationSource {
 
-    private val locationConfig = config.location.effective
+    private val locationConfig = profileController.locationConfig
     private val mainScope = scope + Dispatchers.Main
 
     override val positions = MutableSharedFlow<Position>(extraBufferCapacity = 8)
 
     private var manager: CLLocationManager? = null
     private var delegate: CLLocationManagerDelegateProtocol? = null
+    private var activeConfig: LocationConfig? = null
     private var lastLocation: CLLocation? = null
     private var pendingLocation: CompletableDeferred<CLLocation?>? = null
 
     init {
-        mainScope.observeState(state, State::locationMode, inactive = LocationMode.Off) { mode ->
-            when (mode) {
-                LocationMode.Active -> ensureStarted()
-                LocationMode.Stationary -> ensureStopped(awaitFinalFix = true)
-                LocationMode.Off -> ensureStopped(awaitFinalFix = false)
+        mainScope.launch {
+            combine(state, locationConfig) { trackerState, config ->
+                trackerState.locationMode() to config.effective
             }
+                .distinctUntilChanged()
+                .collect { (mode, config) ->
+                    when (mode) {
+                        LocationMode.Active -> ensureStarted(config)
+                        LocationMode.Stationary -> ensureStopped(awaitFinalFix = true)
+                        LocationMode.Off -> ensureStopped(awaitFinalFix = false)
+                    }
+                }
         }
     }
 
-    private suspend fun ensureStarted() {
-        if (manager != null) return
+    private suspend fun ensureStarted(config: LocationConfig) {
+        if (manager != null && activeConfig == config) return
+        if (manager != null) ensureStopped(awaitFinalFix = false)
 
         val authStatus = CompletableDeferred<Boolean>()
         val newDelegate = object : NSObject(), CLLocationManagerDelegateProtocol {
@@ -85,8 +96,12 @@ class IosLocationSource(
 
         val newManager = CLLocationManager().apply {
             this.delegate = newDelegate
-            desiredAccuracy = locationConfig.accuracy.toIosAccuracy()
-            distanceFilter = kCLDistanceFilterNone
+            desiredAccuracy = config.accuracy.toIosAccuracy()
+            distanceFilter = if (config.distanceMeters > 0) {
+                config.distanceMeters.toDouble()
+            } else {
+                kCLDistanceFilterNone
+            }
             allowsBackgroundLocationUpdates = true
             pausesLocationUpdatesAutomatically = false
         }
@@ -112,7 +127,8 @@ class IosLocationSource(
         newManager.startMonitoringSignificantLocationChanges()
         newManager.startUpdatingLocation()
         manager = newManager
-        Log.log("Location updates started")
+        activeConfig = config
+        Log.log("Location updates started profile=${config.accuracy}/${config.distanceMeters}m/${config.intervalSeconds}s")
     }
 
     @OptIn(ExperimentalForeignApi::class)
@@ -135,12 +151,14 @@ class IosLocationSource(
         Log.log("Location updates stopped")
         manager = null
         delegate = null
+        activeConfig = null
     }
 
     @OptIn(ExperimentalForeignApi::class)
     override suspend fun fetchOnce(): Position? = withContext(Dispatchers.Main) {
         manager?.let { return@withContext fetchOnce(it) }
 
+        val config = locationConfig.value.effective
         val newDelegate = object : NSObject(), CLLocationManagerDelegateProtocol {
             override fun locationManager(manager: CLLocationManager, didUpdateLocations: List<*>) {
                 didUpdateLocations.forEach { value ->
@@ -154,7 +172,7 @@ class IosLocationSource(
         }
         val transient = CLLocationManager().apply {
             delegate = newDelegate
-            desiredAccuracy = locationConfig.accuracy.toIosAccuracy()
+            desiredAccuracy = config.accuracy.toIosAccuracy()
             allowsBackgroundLocationUpdates = true
         }
         try {
@@ -174,7 +192,7 @@ class IosLocationSource(
         } finally {
             pendingLocation = null
         }
-        return (fresh ?: active.location)?.toPosition()
+        return (fresh ?: active.location ?: lastLocation)?.toPosition()
     }
 }
 

@@ -11,6 +11,7 @@ internal fun coreModule(): Module = module {
     single<Flow<Position>> { get<LocationSource>().positions }
     single<StateFlow<State>> { get<StateStore>().state }
     single { ComponentCoroutineScope() }
+    single { TrackingProfileController(get(), get()) }
 
     single<Uploader> { HttpUploader(get(), get()) }
     single { LocationFilter(get(), get()) }
@@ -22,6 +23,7 @@ internal fun coreModule(): Module = module {
             network = get(),
             locationSource = get(),
             config = get(),
+            profileController = get(),
             signalSources = get(),
             processors = listOf(get<LocationFilter>(), get()),
             uploader = get(),
@@ -37,6 +39,7 @@ internal fun coreModule(): Module = module {
             locationSource = get(),
             batteryProcessor = get(),
             uploader = get(),
+            profileController = get(),
             componentScope = get(),
         )
     }

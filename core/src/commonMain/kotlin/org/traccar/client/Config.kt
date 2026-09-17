@@ -7,6 +7,7 @@ data class Config(
     val serverUrl: String,
     val deviceId: String,
     val location: LocationConfig = LocationConfig(),
+    val adaptiveTracking: AdaptiveTrackingConfig = AdaptiveTrackingConfig(),
     val wakeLock: Boolean = false,
     val buffer: Boolean = true,
     val preferPlatformProviders: Boolean = false,
@@ -31,6 +32,19 @@ data class LocationConfig(
     val stationaryRadiusMeters: Int = 100,
     val heartbeatIntervalSeconds: Int = 0,
     val heartbeatMaxAgeSeconds: Int = 300,
+)
+
+@Serializable
+data class AdaptiveTrackingConfig(
+    val enabled: Boolean = false,
+    val transitionDelaySeconds: Int = 10,
+    val lowBatteryThresholdPercent: Int = 20,
+    val drivingEnterSpeedMps: Double = 4.2,
+    val drivingExitSpeedMps: Double = 2.0,
+    val drivingDistanceMeters: Int = 10,
+    val walkingDistanceMeters: Int = 20,
+    val chargingIntervalSeconds: Int = 10,
+    val batterySaverDistanceMeters: Int = 100,
 )
 
 @Serializable

@@ -31,6 +31,7 @@ class ActivityRecognitionDetector(
     state: StateFlow<State>,
 ) : SignalSource {
 
+    private val stopDetectionEnabled = config.location.stopDetection
     private val stopTimeoutSeconds = config.location.stopTimeoutSeconds
 
     private val appContext = context.applicationContext
@@ -68,11 +69,23 @@ class ActivityRecognitionDetector(
         pendingIntent = newPendingIntent
 
         val request = ActivityTransitionRequest(
-            listOf(DetectedActivity.STILL, DetectedActivity.IN_VEHICLE, DetectedActivity.ON_BICYCLE, DetectedActivity.RUNNING, DetectedActivity.WALKING).flatMap { activity ->
-                listOf(ActivityTransition.ACTIVITY_TRANSITION_ENTER, ActivityTransition.ACTIVITY_TRANSITION_EXIT).map { transition ->
-                    ActivityTransition.Builder().setActivityType(activity).setActivityTransition(transition).build()
+            listOf(
+                DetectedActivity.STILL,
+                DetectedActivity.IN_VEHICLE,
+                DetectedActivity.ON_BICYCLE,
+                DetectedActivity.RUNNING,
+                DetectedActivity.WALKING,
+            ).flatMap { activity ->
+                listOf(
+                    ActivityTransition.ACTIVITY_TRANSITION_ENTER,
+                    ActivityTransition.ACTIVITY_TRANSITION_EXIT,
+                ).map { transition ->
+                    ActivityTransition.Builder()
+                        .setActivityType(activity)
+                        .setActivityTransition(transition)
+                        .build()
                 }
-            }
+            },
         )
         client.requestActivityTransitionUpdates(request, newPendingIntent)
             .addOnSuccessListener { Log.log("Activity transitions registered") }
@@ -118,7 +131,10 @@ class ActivityRecognitionDetector(
         val result = ActivityTransitionResult.extractResult(intent) ?: return
         result.transitionEvents.forEach { event ->
             Log.log("Activity transition: ${activityName(event.activityType)} ${transitionName(event.transitionType)}")
-            if (event.activityType != DetectedActivity.STILL) return@forEach
+            if (event.transitionType == ActivityTransition.ACTIVITY_TRANSITION_ENTER) {
+                emitMotion(event.activityType)
+            }
+            if (!stopDetectionEnabled || event.activityType != DetectedActivity.STILL) return@forEach
             if (event.transitionType == ActivityTransition.ACTIVITY_TRANSITION_ENTER) onStillEnter()
             else onStillExit()
         }
@@ -130,7 +146,21 @@ class ActivityRecognitionDetector(
         stopSampling()
         val activity = result.mostProbableActivity
         Log.log("Activity sample: ${activityName(activity.type)} ${activity.confidence}%")
-        if (activity.type == DetectedActivity.STILL) onStillEnter()
+        emitMotion(activity.type)
+        if (stopDetectionEnabled && activity.type == DetectedActivity.STILL) onStillEnter()
+    }
+
+    private fun emitMotion(type: Int) {
+        signals.tryEmit(Signal.MotionChanged(type.toMotionActivity()))
+    }
+
+    private fun Int.toMotionActivity(): MotionActivity = when (this) {
+        DetectedActivity.STILL -> MotionActivity.STILL
+        DetectedActivity.IN_VEHICLE -> MotionActivity.VEHICLE
+        DetectedActivity.ON_BICYCLE -> MotionActivity.CYCLING
+        DetectedActivity.RUNNING -> MotionActivity.RUNNING
+        DetectedActivity.WALKING, DetectedActivity.ON_FOOT -> MotionActivity.WALKING
+        else -> MotionActivity.UNKNOWN
     }
 
     private fun activityName(type: Int): String = when (type) {

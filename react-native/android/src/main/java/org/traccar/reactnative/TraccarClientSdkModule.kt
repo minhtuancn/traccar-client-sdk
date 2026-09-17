@@ -12,6 +12,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import org.traccar.client.Accuracy
+import org.traccar.client.AdaptiveTrackingConfig
 import org.traccar.client.Config
 import org.traccar.client.LocationConfig
 import org.traccar.client.NotificationConfig
@@ -99,6 +100,7 @@ class TraccarClientSdkModule(
 
     private fun parseConfig(config: ReadableMap): Config {
         val location = config.getMap("location")!!
+        val adaptive = config.getMap("adaptiveTracking")
         val notification = config.getMap("notification")!!
         return Config(
             serverUrl = config.getString("serverUrl")!!,
@@ -117,6 +119,17 @@ class TraccarClientSdkModule(
                 } else {
                     300
                 },
+            ),
+            adaptiveTracking = AdaptiveTrackingConfig(
+                enabled = adaptive?.getBoolean("enabled") ?: false,
+                transitionDelaySeconds = adaptive?.getInt("transitionDelaySeconds") ?: 10,
+                lowBatteryThresholdPercent = adaptive?.getInt("lowBatteryThresholdPercent") ?: 20,
+                drivingEnterSpeedMps = adaptive?.getDouble("drivingEnterSpeedMps") ?: 4.2,
+                drivingExitSpeedMps = adaptive?.getDouble("drivingExitSpeedMps") ?: 2.0,
+                drivingDistanceMeters = adaptive?.getInt("drivingDistanceMeters") ?: 10,
+                walkingDistanceMeters = adaptive?.getInt("walkingDistanceMeters") ?: 20,
+                chargingIntervalSeconds = adaptive?.getInt("chargingIntervalSeconds") ?: 10,
+                batterySaverDistanceMeters = adaptive?.getInt("batterySaverDistanceMeters") ?: 100,
             ),
             wakeLock = config.getBoolean("wakeLock"),
             buffer = config.getBoolean("buffer"),
