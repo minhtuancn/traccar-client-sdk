@@ -1,5 +1,6 @@
 name: Client Android Beta Build
 
+# Temporary cross-repo builder for the merged Android beta.
 on:
   push:
     branches:
