@@ -25,6 +25,7 @@ class TrackerEngine internal constructor(
     private val uploader: Uploader,
     private val buffer: Boolean,
     scope: ComponentCoroutineScope,
+    private val heartbeatMaxAgeSeconds: Int = 120,
     private val initialBackoff: Duration = 5.seconds,
     private val maxBackoff: Duration = 5.minutes,
 ) {
@@ -64,8 +65,19 @@ class TrackerEngine internal constructor(
         val state = stateStore.state.value
         if (!state.enabled || !state.paused) return
         Log.log("HeartbeatTick")
-        val position = locationSource.fetchOnce()
-            ?: Position(time = Clock.System.now().toEpochMilliseconds())
+
+        val now = Clock.System.now().toEpochMilliseconds()
+        val candidate = locationSource.fetchOnce()
+        val position = resolveHeartbeatPosition(
+            candidate = candidate,
+            nowMillis = now,
+            maxAgeSeconds = heartbeatMaxAgeSeconds,
+        )
+        if (candidate != null && candidate.latitude != null && position.latitude == null) {
+            Log.log("Heartbeat location stale; using last server location")
+        } else if (candidate == null) {
+            Log.log("Heartbeat location unavailable; using last server location")
+        }
         heartbeatPositions.emit(position)
     }
 

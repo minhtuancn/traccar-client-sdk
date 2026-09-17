@@ -30,6 +30,11 @@ data class LocationConfig(
     val stopTimeoutSeconds: Int = 60,
     val stationaryRadiusMeters: Int = 100,
     val heartbeatIntervalSeconds: Int = 0,
+    /**
+     * Maximum age of a cached location accepted by a stationary heartbeat.
+     * `0` disables freshness filtering and preserves the pre-1.0.12 behavior.
+     */
+    val heartbeatMaxAgeSeconds: Int = 120,
 )
 
 @Serializable

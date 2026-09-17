@@ -26,6 +26,7 @@ internal fun coreModule(): Module = module {
             uploader = get(),
             buffer = get<Config>().buffer,
             scope = get(),
+            heartbeatMaxAgeSeconds = get<Config>().location.heartbeatMaxAgeSeconds,
         )
     }
 
