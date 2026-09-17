@@ -131,6 +131,9 @@ class TrackerEngine internal constructor(
 
         while (currentCoroutineContext().isActive) {
             if (queue.peek() == null) {
+                // A manual sync against an empty queue is complete immediately;
+                // do not let it turn into a forced sync of future positions.
+                manualSyncWakeUp.tryReceive()
                 pipelineWakeUp.receive()
                 backoff = initialBackoff
                 continue
