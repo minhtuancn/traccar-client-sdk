@@ -16,6 +16,7 @@ class MotionActivityDetector(
     state: StateFlow<State>,
 ) : SignalSource {
 
+    private val stopDetectionEnabled = config.location.stopDetection
     private val stopTimeoutSeconds = config.location.stopTimeoutSeconds
 
     override val signals = MutableSharedFlow<Signal>(extraBufferCapacity = 8)
@@ -41,6 +42,7 @@ class MotionActivityDetector(
             if (motion == null) return@startActivityUpdatesToQueue
             Log.log("Motion update: ${motion.describe()}")
             signals.tryEmit(Signal.MotionChanged(motion.toMotionActivity()))
+            if (!stopDetectionEnabled) return@startActivityUpdatesToQueue
             when {
                 motion.stationary -> onStillEnter()
                 motion.walking || motion.running || motion.automotive || motion.cycling ->
