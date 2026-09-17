@@ -7,19 +7,11 @@ const LINKING_ERROR =
 
 const TraccarClientSdk = NativeModules.TraccarClientSdk
   ? NativeModules.TraccarClientSdk
-  : new Proxy(
-      {},
-      {
-        get() {
-          throw new Error(LINKING_ERROR);
-        },
-      }
-    );
+  : new Proxy({}, { get() { throw new Error(LINKING_ERROR); } });
 
-/** Location-accuracy preset. Maps to the SDK's native `Accuracy` enum. */
 export type Accuracy = 'HIGHEST' | 'HIGH' | 'MEDIUM' | 'LOW';
+export type SyncMode = 'INSTANT' | 'BATCH' | 'OFFLINE';
 
-/** Tuning parameters for the location pipeline. */
 export interface LocationConfig {
   accuracy?: Accuracy;
   distanceMeters?: number;
@@ -29,11 +21,9 @@ export interface LocationConfig {
   stopTimeoutSeconds?: number;
   stationaryRadiusMeters?: number;
   heartbeatIntervalSeconds?: number;
-  /** Maximum accepted age of a cached heartbeat coordinate. 0 disables filtering. */
   heartbeatMaxAgeSeconds?: number;
 }
 
-/** Runtime adaptive profile settings. */
 export interface AdaptiveTrackingConfig {
   enabled?: boolean;
   transitionDelaySeconds?: number;
@@ -46,43 +36,33 @@ export interface AdaptiveTrackingConfig {
   batterySaverDistanceMeters?: number;
 }
 
-/** Foreground-service notification settings (Android only). */
-export interface NotificationConfig {
-  text?: string;
+export interface SmartSyncConfig {
+  enabled?: boolean;
+  mode?: SyncMode;
+  batchSize?: number;
+  batchIntervalSeconds?: number;
 }
 
-/** Tracker configuration. Pass to `init` or `setConfig`. */
+export interface NotificationConfig { text?: string; }
+
 export interface Config {
   serverUrl: string;
   deviceId: string;
   location?: LocationConfig;
   adaptiveTracking?: AdaptiveTrackingConfig;
-  /** Hold a wakelock while tracking (Android only). */
+  smartSync?: SmartSyncConfig;
   wakeLock?: boolean;
-  /**
-   * When true, persist positions to a local queue and retry on network
-   * failure. When false, attempt a direct upload for each position and drop
-   * it on failure (real-time only).
-   */
   buffer?: boolean;
-  /**
-   * When true, the Android SDK uses the platform `LocationManager` directly
-   * even when Google Play Services is available. Ignored on iOS.
-   */
   preferPlatformProviders?: boolean;
   notification?: NotificationConfig;
 }
 
-/** A single diagnostic log entry. */
-export interface LogEntry {
-  /** Epoch milliseconds at which the entry was recorded. */
-  time: number;
-  message: string;
-}
+export interface LogEntry { time: number; message: string; }
 
 function normalizeConfig(config: Config): Required<Config> {
   const location = config.location ?? {};
   const adaptive = config.adaptiveTracking ?? {};
+  const smartSync = config.smartSync ?? {};
   const notification = config.notification ?? {};
   return {
     serverUrl: config.serverUrl,
@@ -109,43 +89,31 @@ function normalizeConfig(config: Config): Required<Config> {
       chargingIntervalSeconds: adaptive.chargingIntervalSeconds ?? 10,
       batterySaverDistanceMeters: adaptive.batterySaverDistanceMeters ?? 100,
     },
+    smartSync: {
+      enabled: smartSync.enabled ?? false,
+      mode: smartSync.mode ?? 'INSTANT',
+      batchSize: smartSync.batchSize ?? 25,
+      batchIntervalSeconds: smartSync.batchIntervalSeconds ?? 60,
+    },
     wakeLock: config.wakeLock ?? false,
     buffer: config.buffer ?? true,
     preferPlatformProviders: config.preferPlatformProviders ?? false,
-    notification: {
-      text: notification.text ?? 'Location tracking',
-    },
+    notification: { text: notification.text ?? 'Location tracking' },
   };
 }
 
 export function init(config: Config): Promise<void> {
   return TraccarClientSdk.initTracker(normalizeConfig(config));
 }
-
 export function setConfig(config: Config): Promise<void> {
   return TraccarClientSdk.setConfig(normalizeConfig(config));
 }
-
-export function start(): Promise<void> {
-  return TraccarClientSdk.start();
-}
-
-export function stop(): Promise<void> {
-  return TraccarClientSdk.stop();
-}
-
+export function start(): Promise<void> { return TraccarClientSdk.start(); }
+export function stop(): Promise<void> { return TraccarClientSdk.stop(); }
+export function syncNow(): Promise<void> { return TraccarClientSdk.syncNow(); }
 export function requestPosition(alarm?: string): Promise<boolean> {
   return TraccarClientSdk.requestPosition(alarm ?? null);
 }
-
-export function isTracking(): Promise<boolean> {
-  return TraccarClientSdk.isTracking();
-}
-
-export function getLogs(): Promise<LogEntry[]> {
-  return TraccarClientSdk.getLogs();
-}
-
-export function clearLogs(): Promise<void> {
-  return TraccarClientSdk.clearLogs();
-}
+export function isTracking(): Promise<boolean> { return TraccarClientSdk.isTracking(); }
+export function getLogs(): Promise<LogEntry[]> { return TraccarClientSdk.getLogs(); }
+export function clearLogs(): Promise<void> { return TraccarClientSdk.clearLogs(); }
