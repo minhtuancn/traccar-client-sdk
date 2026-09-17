@@ -95,10 +95,25 @@ public class TraccarClientSdkPlugin: NSObject, FlutterPlugin {
         heartbeatIntervalSeconds: Int32(location["heartbeatIntervalSeconds"] as! Int),
         heartbeatMaxAgeSeconds: Int32(location["heartbeatMaxAgeSeconds"] as? Int ?? 300)
       ),
+      adaptiveTracking: defaultAdaptiveTrackingConfig(),
       wakeLock: args["wakeLock"] as! Bool,
       buffer: args["buffer"] as! Bool,
       preferPlatformProviders: args["preferPlatformProviders"] as! Bool,
       notification: NotificationConfig(text: notification["text"] as! String)
+    )
+  }
+
+  private func defaultAdaptiveTrackingConfig() -> AdaptiveTrackingConfig {
+    AdaptiveTrackingConfig(
+      enabled: false,
+      transitionDelaySeconds: 10,
+      lowBatteryThresholdPercent: 20,
+      drivingEnterSpeedMps: 4.2,
+      drivingExitSpeedMps: 2.0,
+      drivingDistanceMeters: 10,
+      walkingDistanceMeters: 20,
+      chargingIntervalSeconds: 10,
+      batterySaverDistanceMeters: 100
     )
   }
 
