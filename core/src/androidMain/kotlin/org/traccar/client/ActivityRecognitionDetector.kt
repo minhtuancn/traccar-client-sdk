@@ -31,6 +31,7 @@ class ActivityRecognitionDetector(
     state: StateFlow<State>,
 ) : SignalSource {
 
+    private val stopDetectionEnabled = config.location.stopDetection
     private val stopTimeoutSeconds = config.location.stopTimeoutSeconds
 
     private val appContext = context.applicationContext
@@ -133,7 +134,7 @@ class ActivityRecognitionDetector(
             if (event.transitionType == ActivityTransition.ACTIVITY_TRANSITION_ENTER) {
                 emitMotion(event.activityType)
             }
-            if (event.activityType != DetectedActivity.STILL) return@forEach
+            if (!stopDetectionEnabled || event.activityType != DetectedActivity.STILL) return@forEach
             if (event.transitionType == ActivityTransition.ACTIVITY_TRANSITION_ENTER) onStillEnter()
             else onStillExit()
         }
@@ -146,7 +147,7 @@ class ActivityRecognitionDetector(
         val activity = result.mostProbableActivity
         Log.log("Activity sample: ${activityName(activity.type)} ${activity.confidence}%")
         emitMotion(activity.type)
-        if (activity.type == DetectedActivity.STILL) onStillEnter()
+        if (stopDetectionEnabled && activity.type == DetectedActivity.STILL) onStillEnter()
     }
 
     private fun emitMotion(type: Int) {
