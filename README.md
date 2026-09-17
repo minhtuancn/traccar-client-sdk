@@ -13,9 +13,14 @@ This fork adds reliability features intended for long-running managed-device tra
 - fresh-position heartbeat age filtering
 - adaptive Driving / Walking / Stationary / Charging / Battery Saver profiles
 - runtime location subscription changes without adding a second GPS service
+- Smart Sync with Instant / Batch / Offline durable-queue delivery policies
+- manual `syncNow()` queue draining
 - PR verification via GitHub CI and Woodpecker CI
 
-See [Adaptive Tracking Profiles](docs/ADAPTIVE_TRACKING.md) for profile behavior and configuration.
+See:
+
+- [Adaptive Tracking Profiles](docs/ADAPTIVE_TRACKING.md)
+- [Smart Offline and Batch Sync](docs/SMART_SYNC.md)
 
 ## Documentation
 
