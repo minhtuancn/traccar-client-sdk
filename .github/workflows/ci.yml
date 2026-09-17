@@ -32,3 +32,47 @@ jobs:
         run: |
           flutter pub get
           flutter analyze
+
+  build-client-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout integrated client
+        uses: actions/checkout@v5
+        with:
+          repository: minhtuancn/traccar-client
+          ref: feature/sync-status-telemetry
+          submodules: recursive
+          path: client
+
+      - name: Set up JDK
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Verify pinned SDK core
+        working-directory: client/vendor/traccar-client-sdk
+        run: ./gradlew :core:allTests --no-configuration-cache
+
+      - name: Verify Flutter client
+        working-directory: client
+        run: |
+          flutter pub get
+          flutter analyze
+          flutter test
+
+      - name: Build debug APK
+        working-directory: client
+        run: flutter build apk --debug
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: traccar-client-debug-apk
+          path: client/build/app/outputs/flutter-apk/app-debug.apk
+          if-no-files-found: error
