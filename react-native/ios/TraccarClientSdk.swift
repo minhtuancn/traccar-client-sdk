@@ -2,77 +2,49 @@ import Foundation
 import React
 import TraccarClientSDK
 
-enum TrackerError: Error {
-  case notInitialized
-}
+enum TrackerError: Error { case notInitialized }
 
 @objc(TraccarClientSdk)
 class TraccarClientSdk: NSObject {
 
-  @objc static func requiresMainQueueSetup() -> Bool {
-    return false
-  }
+  @objc static func requiresMainQueueSetup() -> Bool { false }
 
   @objc(initTracker:resolver:rejecter:)
-  func initTracker(
-    _ config: NSDictionary,
-    resolver resolve: @escaping RCTPromiseResolveBlock,
-    rejecter reject: @escaping RCTPromiseRejectBlock
-  ) {
+  func initTracker(_ config: NSDictionary, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
     let parsed = parseConfig(config)
-    run(resolve, reject) {
-      _ = try await TrackerKt.sharedTracker(config: parsed)
-      return nil
-    }
+    run(resolve, reject) { _ = try await TrackerKt.sharedTracker(config: parsed); return nil }
   }
 
   @objc(setConfig:resolver:rejecter:)
-  func setConfig(
-    _ config: NSDictionary,
-    resolver resolve: @escaping RCTPromiseResolveBlock,
-    rejecter reject: @escaping RCTPromiseRejectBlock
-  ) {
+  func setConfig(_ config: NSDictionary, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
     let parsed = parseConfig(config)
     run(resolve, reject) {
-      guard let tracker = try await TrackerKt.sharedTracker() else {
-        throw TrackerError.notInitialized
-      }
+      guard let tracker = try await TrackerKt.sharedTracker() else { throw TrackerError.notInitialized }
       _ = try await tracker.updateConfig(newConfig: parsed)
       return nil
     }
   }
 
   @objc(start:rejecter:)
-  func start(
-    _ resolve: @escaping RCTPromiseResolveBlock,
-    rejecter reject: @escaping RCTPromiseRejectBlock
-  ) {
+  func start(_ resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
     run(resolve, reject) {
-      guard let tracker = try await TrackerKt.sharedTracker() else {
-        throw TrackerError.notInitialized
-      }
-      try await tracker.start()
-      return nil
+      guard let tracker = try await TrackerKt.sharedTracker() else { throw TrackerError.notInitialized }
+      try await tracker.start(); return nil
     }
   }
 
   @objc(stop:rejecter:)
-  func stop(
-    _ resolve: @escaping RCTPromiseResolveBlock,
-    rejecter reject: @escaping RCTPromiseRejectBlock
-  ) {
-    run(resolve, reject) {
-      try await TrackerKt.sharedTracker()?.stop()
-      return nil
-    }
+  func stop(_ resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
+    run(resolve, reject) { try await TrackerKt.sharedTracker()?.stop(); return nil }
+  }
+
+  @objc(syncNow:rejecter:)
+  func syncNow(_ resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
+    run(resolve, reject) { try await TrackerKt.sharedTracker()?.syncNow(); return nil }
   }
 
   @objc(requestPosition:resolver:rejecter:)
-  func requestPosition(
-    _ alarm: NSString?,
-    resolver resolve: @escaping RCTPromiseResolveBlock,
-    rejecter reject: @escaping RCTPromiseRejectBlock
-  ) {
+  func requestPosition(_ alarm: NSString?, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
     run(resolve, reject) {
       let uploaded = try await TrackerKt.sharedTracker()?.requestPosition(alarm: alarm as String?)
       return uploaded?.boolValue ?? false
@@ -80,10 +52,7 @@ class TraccarClientSdk: NSObject {
   }
 
   @objc(isTracking:rejecter:)
-  func isTracking(
-    _ resolve: @escaping RCTPromiseResolveBlock,
-    rejecter reject: @escaping RCTPromiseRejectBlock
-  ) {
+  func isTracking(_ resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
     run(resolve, reject) {
       guard let tracker = try await TrackerKt.sharedTracker() else { return false }
       return (tracker.state.value as? State)?.enabled ?? false
@@ -91,48 +60,29 @@ class TraccarClientSdk: NSObject {
   }
 
   @objc(getLogs:rejecter:)
-  func getLogs(
-    _ resolve: @escaping RCTPromiseResolveBlock,
-    rejecter reject: @escaping RCTPromiseRejectBlock
-  ) {
+  func getLogs(_ resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
     run(resolve, reject) {
-      guard let tracker = try await TrackerKt.sharedTracker() else {
-        return [[String: Any]]()
-      }
-      return try await tracker.getLogs().map {
-        ["time": $0.time, "message": $0.message] as [String: Any]
-      }
+      guard let tracker = try await TrackerKt.sharedTracker() else { return [[String: Any]]() }
+      return try await tracker.getLogs().map { ["time": $0.time, "message": $0.message] as [String: Any] }
     }
   }
 
   @objc(clearLogs:rejecter:)
-  func clearLogs(
-    _ resolve: @escaping RCTPromiseResolveBlock,
-    rejecter reject: @escaping RCTPromiseRejectBlock
-  ) {
-    run(resolve, reject) {
-      try await TrackerKt.sharedTracker()?.clearLogs()
-      return nil
-    }
+  func clearLogs(_ resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
+    run(resolve, reject) { try await TrackerKt.sharedTracker()?.clearLogs(); return nil }
   }
 
-  private func run(
-    _ resolve: @escaping RCTPromiseResolveBlock,
-    _ reject: @escaping RCTPromiseRejectBlock,
-    block: @escaping () async throws -> Any?
-  ) {
+  private func run(_ resolve: @escaping RCTPromiseResolveBlock, _ reject: @escaping RCTPromiseRejectBlock, block: @escaping () async throws -> Any?) {
     Task {
-      do {
-        resolve(try await block())
-      } catch {
-        reject(String(describing: type(of: error)), error.localizedDescription, error)
-      }
+      do { resolve(try await block()) }
+      catch { reject(String(describing: type(of: error)), error.localizedDescription, error) }
     }
   }
 
   private func parseConfig(_ args: NSDictionary) -> Config {
     let location = args["location"] as! [String: Any]
     let adaptive = args["adaptiveTracking"] as? [String: Any] ?? [:]
+    let smartSync = args["smartSync"] as? [String: Any] ?? [:]
     let notification = args["notification"] as! [String: Any]
     return Config(
       serverUrl: args["serverUrl"] as! String,
@@ -159,6 +109,12 @@ class TraccarClientSdk: NSObject {
         chargingIntervalSeconds: Int32(adaptive["chargingIntervalSeconds"] as? Int ?? 10),
         batterySaverDistanceMeters: Int32(adaptive["batterySaverDistanceMeters"] as? Int ?? 100)
       ),
+      smartSync: SmartSyncConfig(
+        enabled: smartSync["enabled"] as? Bool ?? false,
+        mode: parseSyncMode(smartSync["mode"] as? String ?? "INSTANT"),
+        batchSize: Int32(smartSync["batchSize"] as? Int ?? 25),
+        batchIntervalSeconds: Int32(smartSync["batchIntervalSeconds"] as? Int ?? 60)
+      ),
       wakeLock: args["wakeLock"] as! Bool,
       buffer: args["buffer"] as! Bool,
       preferPlatformProviders: args["preferPlatformProviders"] as! Bool,
@@ -172,6 +128,14 @@ class TraccarClientSdk: NSObject {
     case "HIGH": return Accuracy.high
     case "LOW": return Accuracy.low
     default: return Accuracy.medium
+    }
+  }
+
+  private func parseSyncMode(_ name: String) -> SyncMode {
+    switch name {
+    case "BATCH": return SyncMode.batch
+    case "OFFLINE": return SyncMode.offline
+    default: return SyncMode.instant
     }
   }
 }

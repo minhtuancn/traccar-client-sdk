@@ -41,6 +41,11 @@ public class TraccarClientSdkPlugin: NSObject, FlutterPlugin {
         try await TrackerKt.sharedTracker()?.stop()
         return nil
       }
+    case "syncNow":
+      runHandler(result) {
+        try await TrackerKt.sharedTracker()?.syncNow()
+        return nil
+      }
     case "requestPosition":
       let alarm = (call.arguments as? [String: Any])?["alarm"] as? String
       runHandler(result) {
@@ -81,6 +86,7 @@ public class TraccarClientSdkPlugin: NSObject, FlutterPlugin {
   private func parseConfig(_ args: [String: Any]) -> Config {
     let location = args["location"] as! [String: Any]
     let adaptive = args["adaptiveTracking"] as? [String: Any] ?? [:]
+    let smartSync = args["smartSync"] as? [String: Any] ?? [:]
     let notification = args["notification"] as! [String: Any]
     return Config(
       serverUrl: args["serverUrl"] as! String,
@@ -107,6 +113,12 @@ public class TraccarClientSdkPlugin: NSObject, FlutterPlugin {
         chargingIntervalSeconds: Int32(adaptive["chargingIntervalSeconds"] as? Int ?? 10),
         batterySaverDistanceMeters: Int32(adaptive["batterySaverDistanceMeters"] as? Int ?? 100)
       ),
+      smartSync: SmartSyncConfig(
+        enabled: smartSync["enabled"] as? Bool ?? false,
+        mode: parseSyncMode(smartSync["mode"] as? String ?? "INSTANT"),
+        batchSize: Int32(smartSync["batchSize"] as? Int ?? 25),
+        batchIntervalSeconds: Int32(smartSync["batchIntervalSeconds"] as? Int ?? 60)
+      ),
       wakeLock: args["wakeLock"] as! Bool,
       buffer: args["buffer"] as! Bool,
       preferPlatformProviders: args["preferPlatformProviders"] as! Bool,
@@ -120,6 +132,14 @@ public class TraccarClientSdkPlugin: NSObject, FlutterPlugin {
     case "HIGH": return Accuracy.high
     case "LOW": return Accuracy.low
     default: return Accuracy.medium
+    }
+  }
+
+  private func parseSyncMode(_ name: String) -> SyncMode {
+    switch name {
+    case "BATCH": return SyncMode.batch
+    case "OFFLINE": return SyncMode.offline
+    default: return SyncMode.instant
     }
   }
 }

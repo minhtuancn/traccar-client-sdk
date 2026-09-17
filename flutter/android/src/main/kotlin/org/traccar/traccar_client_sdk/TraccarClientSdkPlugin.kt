@@ -16,13 +16,13 @@ import org.traccar.client.AdaptiveTrackingConfig
 import org.traccar.client.Config
 import org.traccar.client.LocationConfig
 import org.traccar.client.NotificationConfig
+import org.traccar.client.SmartSyncConfig
+import org.traccar.client.SyncMode
 import org.traccar.client.requestPosition
 import org.traccar.client.sharedTracker
 import org.traccar.client.startTracking
 
-class TraccarClientSdkPlugin :
-    FlutterPlugin,
-    MethodCallHandler {
+class TraccarClientSdkPlugin : FlutterPlugin, MethodCallHandler {
 
     private lateinit var channel: MethodChannel
     private lateinit var context: Context
@@ -50,6 +50,10 @@ class TraccarClientSdkPlugin :
             }
             "stop" -> scope.launchHandler(result) {
                 sharedTracker()?.stop()
+                null
+            }
+            "syncNow" -> scope.launchHandler(result) {
+                sharedTracker()?.syncNow()
                 null
             }
             "requestPosition" -> scope.launchHandler(result) {
@@ -90,6 +94,7 @@ class TraccarClientSdkPlugin :
     private fun parseConfig(args: Map<*, *>): Config {
         val location = args["location"] as Map<*, *>
         val adaptive = args["adaptiveTracking"] as? Map<*, *>
+        val smartSync = args["smartSync"] as? Map<*, *>
         val notification = args["notification"] as Map<*, *>
         return Config(
             serverUrl = args["serverUrl"] as String,
@@ -115,6 +120,12 @@ class TraccarClientSdkPlugin :
                 walkingDistanceMeters = (adaptive?.get("walkingDistanceMeters") as? Number)?.toInt() ?: 20,
                 chargingIntervalSeconds = (adaptive?.get("chargingIntervalSeconds") as? Number)?.toInt() ?: 10,
                 batterySaverDistanceMeters = (adaptive?.get("batterySaverDistanceMeters") as? Number)?.toInt() ?: 100,
+            ),
+            smartSync = SmartSyncConfig(
+                enabled = smartSync?.get("enabled") as? Boolean ?: false,
+                mode = (smartSync?.get("mode") as? String)?.let(SyncMode::valueOf) ?: SyncMode.INSTANT,
+                batchSize = (smartSync?.get("batchSize") as? Number)?.toInt() ?: 25,
+                batchIntervalSeconds = (smartSync?.get("batchIntervalSeconds") as? Number)?.toInt() ?: 60,
             ),
             wakeLock = args["wakeLock"] as Boolean,
             buffer = args["buffer"] as Boolean,

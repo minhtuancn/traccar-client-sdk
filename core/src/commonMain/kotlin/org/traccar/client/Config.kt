@@ -8,6 +8,7 @@ data class Config(
     val deviceId: String,
     val location: LocationConfig = LocationConfig(),
     val adaptiveTracking: AdaptiveTrackingConfig = AdaptiveTrackingConfig(),
+    val smartSync: SmartSyncConfig = SmartSyncConfig(),
     val wakeLock: Boolean = false,
     val buffer: Boolean = true,
     val preferPlatformProviders: Boolean = false,
@@ -46,6 +47,21 @@ data class AdaptiveTrackingConfig(
     val chargingIntervalSeconds: Int = 10,
     val batterySaverDistanceMeters: Int = 100,
 )
+
+@Serializable
+data class SmartSyncConfig(
+    val enabled: Boolean = false,
+    val mode: SyncMode = SyncMode.INSTANT,
+    val batchSize: Int = 25,
+    val batchIntervalSeconds: Int = 60,
+)
+
+@Serializable
+enum class SyncMode {
+    INSTANT,
+    BATCH,
+    OFFLINE,
+}
 
 @Serializable
 enum class Accuracy {

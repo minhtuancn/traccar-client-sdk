@@ -18,6 +18,7 @@ class Tracker internal constructor(
     private val batteryProcessor: PositionProcessor,
     private val uploader: Uploader,
     private val profileController: TrackingProfileController,
+    private val trackerEngine: TrackerEngine,
     private val componentScope: ComponentCoroutineScope,
 ) {
     val state: StateFlow<State> = stateStore.state
@@ -32,6 +33,11 @@ class Tracker internal constructor(
     suspend fun stop() = sharedMutex.withLock {
         Log.log("Tracker stop")
         stateStore.update { it.copy(enabled = false, paused = false) }
+    }
+
+    fun syncNow() {
+        Log.log("Manual sync requested")
+        trackerEngine.syncNow()
     }
 
     suspend fun requestPosition(alarm: String? = null): Boolean {
